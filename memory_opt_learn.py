@@ -111,6 +111,7 @@ def get_metrics(model, labels, x_val, y_val):
 
 def run_neural_network(img_size, processed_images, labels, epoch_range, learning_rate, layers):
 
+    batch_size = processed_images // 32
     train_ds, val_ds = get_data(
         batch_size, img_height=img_size, img_width=img_size, sample_size=processed_images)
 
@@ -119,7 +120,11 @@ def run_neural_network(img_size, processed_images, labels, epoch_range, learning
 
     model, history = train_model(
         model, learning_rate, train_ds, val_ds, epoch_range)
-    x_val, y_val = val_ds
+
+    df = pd.DataFrame(val_ds, columns=["x", "label"])
+    x_val = df["x"].tolist()
+    y_val = df["label"].tolist()
+    print("X: {x_val} \nY: {y_val}".format(x_val=x_val, y_val=y_val))
     metrics = get_metrics(model, labels, x_val, y_val)
 
     return history, metrics
@@ -156,7 +161,7 @@ def main():
                         Conv2D(64, 3, padding="same", activation="relu"),
                         Conv2D(64, 3, padding="same", activation="relu"),
                         MaxPool2D(),
-                        DropOut(0.4),
+                        Dropout(0.4),
                         Flatten(),
                         Dense(128, activation="relu"),
                         Dense(len(cities), activation="softmax")
@@ -197,6 +202,4 @@ def main():
     return results  # safe path if write doesn't work
 
 
-# main()
-x, y = get_data(1, 200, 200, 5)
-print(y)
+main()
