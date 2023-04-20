@@ -182,7 +182,23 @@ def main():
                         Dense(128, activation="relu"),
                         Dense(len(cities), activation="softmax")
                     ]
-                    networks = [network1]  # , network2]
+                    network3 = [
+                        Conv2D(32, (3, 3), activation='relu', input_shape=(res, res, 3)),
+                        MaxPool2D((2, 2)),
+                        Conv2D(64, (3, 3), activation='relu'),
+                        MaxPool2D((2, 2)),
+                        Conv2D(128, (3, 3), activation='relu'),
+                        MaxPool2D((2, 2)),
+                        Conv2D(256, (3, 3), activation='relu'),
+                        MaxPool2D((2, 2)),
+                        Flatten(),
+                        Dense(256, activation='relu'),
+                        Dropout(0.5),
+                        Dense(128, activation='relu'),
+                        Dropout(0.5),
+                        Dense(len(cities), activation='softmax')
+                    ]
+                    networks = [network3]  # , network2]
                     for j, network in enumerate(networks):
 
                         history, metrics = run_neural_network(
