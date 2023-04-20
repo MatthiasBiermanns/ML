@@ -4,5 +4,6 @@ tensorflow
 opencv-python
 numpy
 pandas
-sklearn
+scikit-learn
 matplotlib
+openpyxl
