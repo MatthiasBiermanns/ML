@@ -49,7 +49,7 @@ def get_test_data(image_size, test_size) -> tf.data.Dataset:
         # Convert the compressed string to a 3D uint8 tensor
         img = tf.io.decode_jpeg(img, channels=3)
         # Resize the image to the desired size
-        return tf.image.resize(img, [image_size, image_size])
+        return tf.image.resize(img, [image_size[0], image_size[1]])
 
     # Set `num_parallel_calls` so multiple images are loaded/processed in parallel.
     test_ds = list_ds.map(process_path, num_parallel_calls=AUTOTUNE)

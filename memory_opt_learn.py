@@ -17,7 +17,7 @@ from test_helper import get_test_data
 
 AUTOTUNE = tf.data.AUTOTUNE
 
-base_dir = "/home/fhase/Desktop/Dataset_S"
+base_dir = "/home/fhase/Desktop/Dtaset_4000"
 batch_size = 1
 
 
@@ -28,61 +28,33 @@ def get_class_names():
     return class_names
 
 
-def get_data(batch_size, img_height, img_width, sample_size):
-    data_dir = pathlib.Path(base_dir).with_suffix("")
+def get_data(res):
+    x = np.random.randint(0, 100)
+    train_ds = tf.keras.preprocessing.image_dataset_from_directory(
+        base_dir,
+        labels="inferred",
+        label_mode="int",
+        color_mode="rgb",
+        batch_size=32,
+        image_size=res,
+        shuffle=True,
+        seed=x,
+        validation_split=0.2,
+        subset="training",
+    )
 
-    list_ds = tf.data.Dataset.list_files(
-        str(data_dir/'*/database/images/*'), shuffle=False)
-
-    image_count = len(list(data_dir.glob('*/database/images/*.jpg')))
-
-    list_ds = list_ds.shuffle(image_count, reshuffle_each_iteration=False)
-
-    class_names = np.array(sorted([item.name for item in data_dir.glob(
-        '*') if item.name != "NeuralNetwork_Results.xlsx"]))
-
-    list_ds = list_ds.take(sample_size)
-    image_count = sample_size
-
-    val_size = int(image_count * 0.2)
-
-    train_ds = list_ds.skip(val_size)
-    val_ds = list_ds.take(val_size)
-
-    def get_label(file_path):
-        # Convert the path to a list of path components
-        parts = tf.strings.split(file_path, os.path.sep)
-        # The second to last is the class-directory
-        one_hot = parts[-4] == class_names
-        # Integer encode the label
-        return tf.argmax(one_hot)
-
-    def process_path(file_path):
-        label = get_label(file_path)
-        # Load the raw data from the file as a string
-        img = tf.io.read_file(file_path)
-        img = decode_img(img)
-        return img, label
-
-    def decode_img(img):
-        # Convert the compressed string to a 3D uint8 tensor
-        img = tf.io.decode_jpeg(img, channels=3)
-        # Resize the image to the desired size
-        return tf.image.resize(img, [img_height, img_width])
-
-    # Set `num_parallel_calls` so multiple images are loaded/processed in parallel.
-    train_ds = train_ds.map(process_path, num_parallel_calls=AUTOTUNE)
-    val_ds = val_ds.map(process_path, num_parallel_calls=AUTOTUNE)
-
-    def configure_for_performance(ds):
-        ds = ds.cache()
-        ds = ds.shuffle(buffer_size=1000)
-        ds = ds.batch(batch_size)
-        ds = ds.prefetch(buffer_size=AUTOTUNE)
-        return ds
-
-    train_ds = configure_for_performance(train_ds)
-    val_ds = configure_for_performance(val_ds)
+    val_ds = tf.keras.preprocessing.image_dataset_from_directory(
+        base_dir,
+        labels="inferred",
+        label_mode="int",
+        color_mode="rgb",
+        batch_size=32,
+        image_size=res,
+        shuffle=True,
+        seed=x,
+        validation_split=0.2,
+        subset="validation",
+    )
     return train_ds, val_ds
 
 
@@ -114,11 +86,10 @@ def get_metrics(model, labels, x_val, y_val):
     return classification_report(y_val, predictions, target_names=labels)
 
 
-def run_neural_network(img_size, processed_images, labels, epoch_range, learning_rate, layers):
+def run_neural_network(res, labels, epoch_range, learning_rate, layers):
 
-    batch_size = pow(2, processed_images // (32 + processed_images // 10))
     train_ds, val_ds = get_data(
-        batch_size, img_height=img_size, img_width=img_size, sample_size=processed_images)
+        res)
 
     model = generate_model(layers)
     print(model.summary())
@@ -126,8 +97,7 @@ def run_neural_network(img_size, processed_images, labels, epoch_range, learning
     model, history = train_model(
         model, learning_rate, train_ds, val_ds, epoch_range)
 
-    test_ds = get_test_data(image_size=img_size,
-                            test_size=10)
+    test_ds = get_test_data(image_size=res, test_size=50)
     x_val = list(map(lambda x: x[0].numpy().tolist(), test_ds))
     y_val = list(map(lambda x: x[1].numpy(), test_ds))
     metrics = get_metrics(model, labels, x_val, y_val)
@@ -139,76 +109,52 @@ def run_neural_network(img_size, processed_images, labels, epoch_range, learning
 def main():
     resultPath = os.path.join(base_dir, 'NeuralNetwork_Results.xlsx')
     cities = get_class_names()
-    image_count = [1000]  # , 1000, 2000]
-    resolution = [225]  # , 450, 1000]
-    learning_rate = [0.000001]  # , 0.00001, 0.0001]
-    epoch_range = 100
+    resolution = [(720, 480)]
+    learning_rate = [0.00001]
 
-    results = pd.DataFrame(columns=['ID', 'Netzwerk', 'Anzahl Bilder', 'Bildauflösung (px)', 'Lernquote',
+    results = pd.DataFrame(columns=['ID', 'Netzwerk', 'Bildauflösung (px)', 'Lernquote',
                                     'Train Acc', 'Val Acc', 'Train Loss', 'Val Loss', 'Metriken'])
     results = results.set_index('ID')
     rowId = 0
     try:
-        for images in image_count:
-            for res in resolution:
-                if images > 1000 and res > 450:
-                    continue
-                for lr in learning_rate:
-                    filters = res // 7
-                    # needs res for initialization
-                    network1 = [
-                        Conv2D(filters, 3, padding="same", activation="tanh",
-                               input_shape=(res, res, 3)),
-                        Conv2D(filters, 3, padding="same", activation="tanh"),
-                        MaxPool2D(),
-                        Conv2D(filters*2, 3, padding="same",
-                               activation="tanh"),
-                        MaxPool2D(),
-                        Dropout(0.4),
-                        Flatten(),
-                        Dense(128, activation="tanh"),
-                        Dense(len(cities), activation="softmax")
-                    ]
-                    network2 = [
-                        Conv2D(32, 3, padding="same", activation="relu",
-                               input_shape=(res, res, 3)),
-                        MaxPool2D(),
-                        Conv2D(32, 3, padding="same", activation="relu"),
-                        MaxPool2D(),
-                        Conv2D(64, 3, padding="same", activation="relu"),
-                        MaxPool2D(),
-                        Dropout(0.4),
-                        Flatten(),
-                        Dense(128, activation="relu"),
-                        Dense(len(cities), activation="softmax")
-                    ]
-                    network3 = [
-                        Conv2D(32, (3, 3), activation='relu', input_shape=(res, res, 3)),
-                        MaxPool2D((2, 2)),
-                        Conv2D(64, (3, 3), activation='relu'),
-                        MaxPool2D((2, 2)),
-                        Conv2D(128, (3, 3), activation='relu'),
-                        MaxPool2D((2, 2)),
-                        Conv2D(256, (3, 3), activation='relu'),
-                        MaxPool2D((2, 2)),
-                        Flatten(),
-                        Dense(256, activation='relu'),
-                        Dropout(0.5),
-                        Dense(128, activation='relu'),
-                        Dropout(0.5),
-                        Dense(len(cities), activation='softmax')
-                    ]
-                    networks = [network3]  # , network2]
-                    for j, network in enumerate(networks):
+        for res in resolution:
+            for lr in learning_rate:
+                network1 = [
+                    Conv2D(16, 3, padding="same", activation="tanh",
+                           input_shape=(res[0], res[1], 3)),
+                    Conv2D(32, 3, padding="same", activation="tanh"),
+                    MaxPool2D(),
+                    Conv2D(64, 3, padding="same",
+                           activation="tanh"),
+                    MaxPool2D(),
+                    Dropout(0.4),
+                    Flatten(),
+                    Dense(128, activation="tanh"),
+                    Dense(len(cities), activation="softmax")
+                ]
+                network2 = [
+                    Conv2D(32, 3, padding="same", activation="relu",
+                           input_shape=(res[0], res[1], 3)),
+                    MaxPool2D(),
+                    Conv2D(32, 3, padding="same", activation="relu"),
+                    MaxPool2D(),
+                    Conv2D(64, 3, padding="same", activation="relu"),
+                    MaxPool2D(),
+                    Dropout(0.4),
+                    Flatten(),
+                    Dense(128, activation="relu"),
+                    Dense(len(cities), activation="softmax")
+                ]
+                networks = [network1,network2]
+                for j, network in enumerate(networks):
+                    history, metrics = run_neural_network(
+                        res, cities, 15 if j == 0 else 22, lr, network)
 
-                        history, metrics = run_neural_network(
-                            res, images, cities, epoch_range, lr, network)
+                    results.loc[rowId] = ['Netzwerk ' + str(j+1), res, lr, history.history['accuracy'],
+                                          history.history['val_accuracy'], history.history['loss'],
+                                          history.history['val_loss'], metrics]
 
-                        results.loc[rowId] = ['Netzwerk ' + str(j+1), images, res, lr, history.history['accuracy'],
-                                              history.history['val_accuracy'], history.history['loss'],
-                                              history.history['val_loss'], metrics]
-
-                        rowId = rowId + 1
+                rowId = rowId + 1
     except Exception as e:
         logging.error(traceback.format_exc())
     try:
