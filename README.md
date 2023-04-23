@@ -22,7 +22,7 @@
 
 ### Aussortieren
 
-- Vorerste benutztung von 5 Städten verschiedener Kontinente:
+- Vorerste benutztung von 6 Städten verschiedener Kontinente:
   - San Francisco
   - Tokio
   - Berlin
