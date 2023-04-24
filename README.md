@@ -1,5 +1,10 @@
 # ML
 
+## Selber ausführen
+
+- Import der Libraries der requirements.txt
+- Bei lokalem Hosting alternativ install.cmd oder install.sh ausführen
+
 ## Datenbeschaffung
 
 - Dataset von [Mapillary](https://www.mapillary.com/dataset/places)
@@ -35,4 +40,5 @@
   - Nachtbilder
 
 [Py-Script zur Datenbereinigung](./flatten_dataset.py)
+
 [Script zum ausführen im Datenbaum](./run_flatten_script.sh)
