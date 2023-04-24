@@ -119,12 +119,13 @@ def main():
     try:
         for res in resolution:
             for lr in learning_rate:
+                filters = res[1] // 7
                 network1 = [
-                    Conv2D(16, 3, padding="same", activation="tanh",
+                    Conv2D(filters, 3, padding="same", activation="tanh",
                            input_shape=(res[0], res[1], 3)),
-                    Conv2D(32, 3, padding="same", activation="tanh"),
+                    Conv2D(filters, 3, padding="same", activation="tanh"),
                     MaxPool2D(),
-                    Conv2D(64, 3, padding="same",
+                    Conv2D(2*filters, 3, padding="same",
                            activation="tanh"),
                     MaxPool2D(),
                     Dropout(0.4),
